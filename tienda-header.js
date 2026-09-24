@@ -97,6 +97,8 @@ TEMPLATE.innerHTML = /* html */ `
     flex-wrap: nowrap;
   }
 
+  .th-nav li { flex-shrink: 0; }
+
   .th-nav li { position: relative; }
 
   .th-nav a, .th-nav button.th-navlink {
@@ -145,7 +147,7 @@ TEMPLATE.innerHTML = /* html */ `
   .th-search {
     display: flex;
     align-items: center;
-    flex: 0 1 360px;
+    flex: 0 1 220px;
     min-width: 0;
     border: 1px solid var(--th-border);
     border-radius: 999px;
@@ -242,7 +244,7 @@ TEMPLATE.innerHTML = /* html */ `
   }
   .th-burger svg { width: 24px; height: 24px; }
 
-  @media (max-width: 860px) {
+  @media (max-width: 1040px) {
     .th-search { display: none; }
     nav.th-nav { display: none; }
     .th-burger { display: flex; }
@@ -273,6 +275,42 @@ TEMPLATE.innerHTML = /* html */ `
     }
   }
 
+  .th-mobile-search-box {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--th-border);
+    border-radius: 999px;
+    padding: 0 6px 0 14px;
+    height: 42px;
+    background: #fafafa;
+    width: 100%;
+  }
+  .th-mobile-search-box input {
+    border: none;
+    background: none;
+    outline: none;
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--th-text);
+  }
+  .th-mobile-search-box input::placeholder { color: var(--th-muted); }
+  .th-mobile-search-box button {
+    border: none;
+    background: var(--th-accent);
+    color: var(--th-accent-text);
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .th-mobile-search-box svg { width: 16px; height: 16px; }
+
   .th-mobile-search { display: none; }
 
   .th-sr-only {
@@ -299,6 +337,14 @@ TEMPLATE.innerHTML = /* html */ `
     </a>
 
     <nav class="th-nav" part="nav" aria-label="Navegación principal">
+      <div id="th-mobile-search" class="th-mobile-search">
+        <div class="th-mobile-search-box">
+          <input type="search" id="th-mobile-search-input" placeholder="Buscar productos…" aria-label="Buscar productos" />
+          <button id="th-mobile-search-btn" aria-label="Buscar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+        </div>
+      </div>
       <slot name="nav"></slot>
       <ul id="th-menu-list"></ul>
     </nav>
@@ -312,7 +358,6 @@ TEMPLATE.innerHTML = /* html */ `
 
     <div class="th-actions" part="actions">
       <slot name="actions"></slot>
-      <div id="th-mobile-search" class="th-mobile-search"></div>
     </div>
   </div>
 </div>
@@ -342,6 +387,8 @@ class TiendaHeader extends HTMLElement {
     this._$searchBtn = this.shadowRoot.getElementById('th-search-btn');
     this._$burger = this.shadowRoot.querySelector('.th-burger');
     this._$searchWrap = this.shadowRoot.querySelector('.th-search');
+    this._$mobileSearchInput = this.shadowRoot.getElementById('th-mobile-search-input');
+    this._$mobileSearchBtn = this.shadowRoot.getElementById('th-mobile-search-btn');
     this._$actions = this.shadowRoot.querySelector('.th-actions');
 
     this._renderLogo();
@@ -450,7 +497,13 @@ class TiendaHeader extends HTMLElement {
     const userName = this.getAttribute('user-name');
     const cartCount = this.getAttribute('cart-count') || this._cartCount || '0';
 
-    if (this._$searchWrap) this._$searchWrap.style.display = showSearch ? 'flex' : 'none';
+    if (this._$searchWrap) {
+      if (showSearch) {
+        this._$searchWrap.style.removeProperty('display'); // deja que el CSS / @media decida
+      } else {
+        this._$searchWrap.style.display = 'none'; // forzado a ocultarse por atributo
+      }
+    }
 
     // Limpia botones generados previamente (deja el slot "actions" y la búsqueda móvil intactos)
     this._$actions.querySelectorAll('[data-generated]').forEach((el) => el.remove());
@@ -503,6 +556,11 @@ class TiendaHeader extends HTMLElement {
       if (e.key === 'Enter') this._doSearch();
     });
 
+    this._$mobileSearchBtn.addEventListener('click', () => this._doSearch(this._$mobileSearchInput));
+    this._$mobileSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this._doSearch(this._$mobileSearchInput);
+    });
+
     this._$burger.addEventListener('click', () => {
       const open = this.toggleAttribute('data-mobile-open');
       this._$burger.setAttribute('aria-expanded', String(open));
@@ -522,8 +580,9 @@ class TiendaHeader extends HTMLElement {
     });
   }
 
-  _doSearch() {
-    const query = this._$searchInput.value.trim();
+  _doSearch(sourceInput) {
+    const input = sourceInput || this._$searchInput;
+    const query = input.value.trim();
     this._emit('header-search', { query });
   }
 
